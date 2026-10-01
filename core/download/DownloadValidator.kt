@@ -1,77 +1,109 @@
 package com.coral.launcher.download
 
 import java.io.File
-import java.security.MessageDigest
+import java.net.HttpURLConnection
+import java.net.URL
 
-object DownloadValidator {
+object FileDownloader {
 
-    fun exists(
-        file: File
-    ): Boolean {
-        return file.exists() &&
-                file.isFile &&
-                file.length() > 0
-    }
-
-    fun sha1(
-        file: File
-    ): String? {
-
-        if (!exists(file)) {
-            return null
-        }
+    fun download(
+        url: String,
+        destination: File,
+        expectedSha1: String? = null
+    ): DownloadResult {
 
         return try {
-            val digest =
-                MessageDigest.getInstance("SHA-1")
 
-            file.inputStream().use { input ->
-
-                val buffer = ByteArray(8192)
-
-                while (true) {
-
-                    val count =
-                        input.read(buffer)
-
-                    if (count == -1) {
-                        break
-                    }
-
-                    digest.update(
-                        buffer,
-                        0,
-                        count
+            // Skip download if existing file is valid
+            if (
+                DownloadValidator.exists(destination) &&
+                (
+                    expectedSha1.isNullOrBlank() ||
+                    DownloadValidator.verifySha1(
+                        destination,
+                        expectedSha1
                     )
-                }
+                )
+            ) {
+                return DownloadResult.Success(destination)
             }
 
-            digest.digest()
-                .joinToString("") {
-                    "%02x".format(it)
+            destination.parentFile?.mkdirs()
+
+            val connection =
+                URL(url).openConnection() as HttpURLConnection
+
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 15000
+            connection.readTimeout = 30000
+
+            connection.setRequestProperty(
+                "User-Agent",
+                "CORAL-Launcher/0.1"
+            )
+
+            try {
+
+                if (connection.responseCode !in 200..299) {
+                    return DownloadResult.Error(
+                        "Download failed: HTTP ${connection.responseCode}"
+                    )
                 }
 
-        } catch (_: Exception) {
-            null
+                connection.inputStream.use { input ->
+
+                    destination.outputStream().use { output ->
+
+                        val buffer = ByteArray(8192)
+
+                        while (true) {
+
+                            val count =
+                                input.read(buffer)
+
+                            if (count == -1) {
+                                break
+                            }
+
+                            output.write(
+                                buffer,
+                                0,
+                                count
+                            )
+                        }
+                    }
+                }
+
+                // Verify downloaded file
+                if (
+                    expectedSha1 != null &&
+                    expectedSha1.isNotBlank() &&
+                    !DownloadValidator.verifySha1(
+                        destination,
+                        expectedSha1
+                    )
+                ) {
+
+                    destination.delete()
+
+                    return DownloadResult.Error(
+                        "Downloaded file failed SHA-1 verification"
+                    )
+                }
+
+                DownloadResult.Success(destination)
+
+            } finally {
+                connection.disconnect()
+            }
+
+        } catch (e: Exception) {
+
+            DownloadResult.Error(
+                message = e.message
+                    ?: "Unknown download error",
+                cause = e
+            )
         }
-    }
-
-    fun verifySha1(
-        file: File,
-        expectedSha1: String
-    ): Boolean {
-
-        if (expectedSha1.isBlank()) {
-            return exists(file)
-        }
-
-        val actualSha1 =
-            sha1(file)
-                ?: return false
-
-        return actualSha1.equals(
-            expectedSha1,
-            ignoreCase = true
-        )
     }
 }
