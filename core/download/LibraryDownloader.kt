@@ -1,8 +1,8 @@
 package com.coral.launcher.download
 
+import android.content.Context
 import com.coral.launcher.game.GamePaths
 import org.json.JSONObject
-import android.content.Context
 import java.io.File
 
 class LibraryDownloader(
@@ -20,12 +20,14 @@ class LibraryDownloader(
             versionJson.readText()
         )
 
-        val libraries = json.optJSONArray("libraries")
-            ?: return result
+        val libraries =
+            json.optJSONArray("libraries")
+                ?: return result
 
         for (i in 0 until libraries.length()) {
 
-            val library = libraries.getJSONObject(i)
+            val library =
+                libraries.getJSONObject(i)
 
             val downloads =
                 library.optJSONObject("downloads")
@@ -35,10 +37,19 @@ class LibraryDownloader(
                 downloads.optJSONObject("artifact")
                     ?: continue
 
-            val url = artifact.optString("url")
-            val path = artifact.optString("path")
+            val url =
+                artifact.optString("url")
 
-            if (url.isBlank() || path.isBlank()) {
+            val path =
+                artifact.optString("path")
+
+            val expectedSha1 =
+                artifact.optString("sha1")
+
+            if (
+                url.isBlank() ||
+                path.isBlank()
+            ) {
                 continue
             }
 
@@ -49,18 +60,18 @@ class LibraryDownloader(
 
             when (
                 FileDownloader.download(
-                    url,
-                    destination
+                    url = url,
+                    destination = destination,
+                    expectedSha1 = expectedSha1
                 )
             ) {
+
                 is DownloadResult.Success -> {
                     result.add(destination)
                 }
 
                 is DownloadResult.Error -> {
-                    // Library gagal di-download.
-                    // Proses berikutnya akan menangani error
-                    // dengan lebih detail.
+                    // Library failed to download.
                 }
             }
         }
