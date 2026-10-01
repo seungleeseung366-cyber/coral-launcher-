@@ -1,8 +1,8 @@
 package com.coral.launcher.download
 
+import android.content.Context
 import com.coral.launcher.game.GamePaths
 import com.coral.launcher.game.MinecraftVersion
-import android.content.Context
 import org.json.JSONObject
 import java.io.File
 
@@ -15,8 +15,12 @@ class MinecraftDownloader(
     ): DownloadResult {
 
         return try {
+
             val versionDir =
-                GamePaths.version(context, version.id)
+                GamePaths.version(
+                    context,
+                    version.id
+                )
 
             versionDir.mkdirs()
 
@@ -26,8 +30,9 @@ class MinecraftDownloader(
             )
 
             val result = FileDownloader.download(
-                version.url,
-                jsonFile
+                url = version.url,
+                destination = jsonFile,
+                expectedSha1 = version.sha1
             )
 
             if (result is DownloadResult.Error) {
@@ -51,9 +56,9 @@ class MinecraftDownloader(
     ): String? {
 
         return try {
-            val json = JSONObject(
-                versionJson.readText()
-            )
+
+            val json =
+                JSONObject(versionJson.readText())
 
             json
                 .getJSONObject("downloads")
@@ -65,15 +70,41 @@ class MinecraftDownloader(
         }
     }
 
+    fun getClientSha1(
+        versionJson: File
+    ): String? {
+
+        return try {
+
+            val json =
+                JSONObject(versionJson.readText())
+
+            json
+                .getJSONObject("downloads")
+                .getJSONObject("client")
+                .optString("sha1")
+                .takeIf {
+                    it.isNotBlank()
+                }
+
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     fun downloadClient(
         version: MinecraftVersion,
         versionJson: File
     ): DownloadResult {
 
-        val url = getClientUrl(versionJson)
-            ?: return DownloadResult.Error(
-                "Client download URL not found"
-            )
+        val url =
+            getClientUrl(versionJson)
+                ?: return DownloadResult.Error(
+                    "Client download URL not found"
+                )
+
+        val sha1 =
+            getClientSha1(versionJson)
 
         val destination = File(
             GamePaths.version(
@@ -84,8 +115,9 @@ class MinecraftDownloader(
         )
 
         return FileDownloader.download(
-            url,
-            destination
+            url = url,
+            destination = destination,
+            expectedSha1 = sha1
         )
     }
 }
