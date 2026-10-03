@@ -5,7 +5,6 @@ import java.io.File
 class GameLauncher {
 
     private val classpathBuilder = ClasspathBuilder()
-    private val nativesExtractor = NativesExtractor()
 
     fun launch(request: GameLaunchRequest): GameProcess {
         require(request.javaBinary.isFile) {
@@ -21,10 +20,7 @@ class GameLauncher {
         }
 
         val classpath = classpathBuilder.build(
-            librariesDirectory = File(
-                request.gameDirectory,
-                "libraries"
-            ),
+            libraries = request.libraries,
             minecraftJar = request.minecraftJar
         )
 
