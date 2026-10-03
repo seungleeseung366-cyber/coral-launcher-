@@ -12,6 +12,8 @@ class NativesExtractor {
         return try {
             destination.mkdirs()
 
+            val destinationPath = destination.canonicalFile.toPath()
+
             for (jar in nativeJars) {
                 if (!jar.isFile) continue
 
@@ -22,15 +24,11 @@ class NativesExtractor {
                         val entry = entries.nextElement()
 
                         if (entry.isDirectory) continue
-                        if (!entry.name.startsWith("META-INF/").not()) continue
+                        if (entry.name.startsWith("META-INF/")) continue
 
                         val output = File(destination, entry.name)
 
-                        val destinationPath =
-                            destination.canonicalFile.toPath()
-
-                        val outputPath =
-                            output.canonicalFile.toPath()
+                        val outputPath = output.canonicalFile.toPath()
 
                         // Mencegah Zip Slip
                         if (!outputPath.startsWith(destinationPath)) {
